@@ -2,8 +2,9 @@ module Rubydora
 
   # Provide low-level access to the Fedora Commons REST API
   module RestApiClient
-    # Fedora API documentation available at {https://wiki.duraspace.org/display/FCR30/REST+API}
-    API_DOCUMENTATION = 'https://wiki.duraspace.org/display/FCR30/REST+API'
+    
+    include Rubydora::FedoraUrlHelpers
+
     VALID_CLIENT_OPTIONS = [:user, :password, :timeout, :open_timeout, :ssl_client_cert, :ssl_client_key]
     # Create an authorized HTTP client for the Fedora REST API
     # @param [Hash] config
@@ -30,7 +31,7 @@ module Rubydora
     def next_pid options = {}
       options[:format] ||= 'xml'
       begin
-        return client[url_for(object_url() + "/nextPID", options)].post nil
+        return client[next_pid_url(options)].post nil
       rescue => e
         logger.error e.response
         logger.flush if logger.respond_to? :flush
@@ -46,7 +47,7 @@ module Rubydora
       options[:resultFormat] ||= 'xml'
 
       begin
-        resource = client[object_url(nil, options)]
+        resource = client[find_objects_url(options)]
         if block_given?
           resource.options[:block_response] = block_response
         end 
@@ -99,7 +100,7 @@ module Rubydora
     def export options = {}
       pid = options.delete(:pid)
       begin
-	return client[export_url(pid, options)].get
+        return client[export_object_url(pid, options)].get
       rescue => e
         logger.error e.response
         raise "Error exporting object #{pid}. See logger for details"
@@ -147,7 +148,7 @@ module Rubydora
       options[:format] ||= 'xml'
       raise "" unless pid
       begin
-        return client[url_for(object_url(pid) + "/versions", options)].get
+        return client[object_versions_url(pid, options)].get
       rescue => e
         logger.error e.response
         logger.flush if logger.respond_to? :flush
@@ -164,7 +165,7 @@ module Rubydora
       raise "" unless pid
       options[:format] ||= 'xml'
       begin
-        return client[url_for(object_url(pid) + "/objectXML", options)].get
+        return client[object_xml_url(pid, options)].get
       rescue => e
         logger.error e.response
         logger.flush if logger.respond_to? :flush
@@ -222,7 +223,7 @@ module Rubydora
       raise ArgumentError, "Must supply dsid" unless dsid
       options[:format] ||= 'xml'
       begin
-        return client[url_for(datastream_url(pid, dsid) + "/history", options)].get
+        return client[datastream_history_url(pid, dsid, options)].get
       rescue => e
         logger.error e.response
         logger.flush if logger.respond_to? :flush
@@ -244,7 +245,7 @@ module Rubydora
       method ||= :get
       raise self.class.name + "#datastream_dissemination requires a DSID" unless dsid
       begin
-        resource = client[url_for(datastream_url(pid, dsid) + "/content", options)]
+        resource = client[datastream_content_url(pid, dsid, options)]
         if block_given?
           resource.options[:block_response] = block_response
         end
@@ -329,7 +330,7 @@ module Rubydora
       raise "" unless pid
       options[:format] ||= 'xml'
       begin
-        return client[url_for(object_url(pid) + "/relationships", options)].get
+        return client[object_relationship_url(pid, options)].get
       rescue => e
         logger.error e.response
         logger.flush if logger.respond_to? :flush
@@ -344,7 +345,7 @@ module Rubydora
     def add_relationship options = {}
       pid = options.delete(:pid) || options[:subject]
       begin
-        return client[url_for(object_url(pid) + "/relationships/new", options)].post nil
+        return client[new_object_relationship_url(pid, options)].post nil
       rescue => e
         logger.error e.response
         logger.flush if logger.respond_to? :flush
@@ -359,7 +360,7 @@ module Rubydora
     def purge_relationship options = {}
       pid = options.delete(:pid) || options[:subject]
       begin
-        return client[url_for(object_url(pid) + "/relationships", options)].delete
+        return client[object_relationship_url(pid, options)].delete
       rescue => e
         logger.error e.response
         logger.flush if logger.respond_to? :flush
@@ -390,53 +391,5 @@ module Rubydora
         raise "Error getting dissemination for #{pid}. See logger for details"
       end
     end
-    
-    # Generate a REST API compatible URI 
-    # @param [String] base base URI
-    # @param [Hash] options to convert to URL parameters
-    # @return [String] URI
-    def url_for base, options = nil
-      return base unless options.is_a? Hash
-      "#{base}" + (("?#{options.map { |key, value|  "#{CGI::escape(key.to_s)}=#{CGI::escape(value.to_s)}"}.join("&")  }" if options and not options.empty?) || '')
-    end
-
-    # Generate a base object REST API endpoint URI
-    # @param [String] pid
-    # @param [Hash] options to convert to URL parameters
-    # @return [String] URI
-    def object_url pid = nil, options = nil
-      url_for("objects" + (("/#{CGI::escape(pid.to_s.gsub('info:fedora/', ''))}" if pid) || ''), options)
-    end
-
-    # Generate a base object dissemination REST API endpoint URI
-    # @param [String] pid
-    # @param [String] sdef
-    # @param [String] method
-    # @param [Hash] options to convert to URL parameters
-    # @return [String] URI
-    def dissemination_url pid, sdef = nil, method = nil, options = nil
-      raise "" unless pid
-      url_for(object_url(pid) + "/methods" +  (("/#{CGI::escape(sdef)}" if sdef) || '') +  (("/#{CGI::escape(method)}" if method) || ''), options)
-    end
-
-    # Generate a base datastream REST API endpoint URI
-    # @param [String] pid
-    # @param [String] dsid
-    # @param [Hash] options to convert to URL parameters
-    # @return [String] URI
-    def datastream_url pid, dsid = nil, options = nil
-      raise "" unless pid
-      url_for(object_url(pid) + "/datastreams" + (("/#{CGI::escape(dsid)}" if dsid) || ''), options)
-    end
-
-    # Generate a base export REST API endpoint URI
-    # @param [String] pid
-    # @param [Hash] options to convert to URL parameters
-    # @return [String] URI
-    def export_url pid, options = nil
-      raise "" unless pid
-      url_for(object_url(pid) + "/export", options)
-    end
-
   end
 end
