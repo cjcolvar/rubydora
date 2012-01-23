@@ -126,6 +126,25 @@ describe Rubydora::DigitalObject do
 
   end
 
+  describe "update" do
+
+    before(:each) do
+      @mock_repository.stub(:object) { <<-XML
+      <objectProfile>
+        <objLabel>label</objLabel>
+      </objectProfile>
+      XML
+      }
+
+      @object = Rubydora::DigitalObject.new 'pid', @mock_repository
+    end
+
+    it "should not say changed if the value is set the same" do
+      @object.label = "label"
+      @object.should_not be_changed
+    end
+  end
+
   describe "retrieve" do
 
   end
@@ -363,6 +382,11 @@ describe Rubydora::DigitalObject do
       it "should mark the object as changed after setting" do
         subject.send("#{method}=", 'new_value')
         subject.should be_changed
+      end
+
+      it "should not mark the object as changed if the value does not change" do
+        subject.should_receive(method) { 'zxcv' }
+        subject.send("#{method}=", 'zxcv')
       end
 
       it "should appear in the save request" do 

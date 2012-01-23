@@ -94,6 +94,11 @@ describe Rubydora::Datastream do
       XML
     end
 
+    it "should not say changed if the value is set the same" do
+      @datastream.dsLabel = "label"
+      @datastream.should_not be_changed
+    end
+
     it "should allow profile attributes to be replaced" do
       @datastream.dsLabel = "New Label"
       @datastream.dsLabel.should == "New Label"
@@ -218,6 +223,11 @@ describe Rubydora::Datastream do
       it "should mark the object as changed after setting" do
         subject.send("#{method}=", 'new_value')
         subject.should be_changed
+      end
+
+      it "should not mark the object as changed if the value does not change" do
+        subject.should_receive(method) { 'zxcv' }
+        subject.send("#{method}=", 'zxcv')
       end
 
       it "should appear in the save request" do 
